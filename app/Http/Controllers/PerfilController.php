@@ -4,21 +4,16 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Reciclaje;
-use App\Models\Canje;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rules\Password;
 
 class PerfilController extends Controller
 {
     public function show()
     {
         $user = Auth::user();
-
-        $puntosTotal       = Reciclaje::where('user_id', $user->id)->sum('puntos');
-        $puntosGastados    = Canje::where('user_id', $user->id)->sum('puntos_usados');
-        $puntosDisponibles = $puntosTotal - $puntosGastados;
-        $totalReciclajes   = Reciclaje::where('user_id', $user->id)->count();
-
-        return view('perfil.show', compact('user', 'puntosTotal', 'puntosDisponibles', 'totalReciclajes'));
+        return view('perfil.show', compact('user'));
     }
 
     public function edit()
@@ -31,19 +26,61 @@ class PerfilController extends Controller
     {
         $user = Auth::user();
 
-        $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'unique:users,email,' . $user->id],
+        $request->validate([
+            'nombre' => 'required|string|max:100',
+            'email'  => 'required|email|unique:users,email,' . $user->id,
+            'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ], [
+            'nombre.required' => 'El nombre es obligatorio.',
+            'email.required'  => 'El correo es obligatorio.',
+            'email.email'     => 'Ingresa un correo válido.',
+            'email.unique'    => 'Este correo ya está registrado por otro usuario.',
+            'avatar.image'    => 'El archivo debe ser una imagen.',
+            'avatar.max'      => 'La imagen no debe superar 2MB.',
         ]);
 
-        $user->update($validated);
+        $data = [
+            'nombre' => $request->nombre,
+            'email'  => $request->email,
+        ];
 
-        return redirect()->route('perfil.show')->with('success', 'Perfil actualizado correctamente.');
+        // Subida de avatar
+        if ($request->hasFile('avatar')) {
+            // Eliminar avatar anterior si existe
+            if ($user->avatar) {
+                Storage::disk('public')->delete($user->avatar);
+            }
+            $path = $request->file('avatar')->store('avatares', 'public');
+            $data['avatar'] = $path;
+        }
+
+        $user->update($data);
+
+        return redirect()->route('perfil.show')
+            ->with('success', 'Perfil actualizado correctamente.');
     }
 
-    public function configuracion()
+    public function cambiarPassword(Request $request)
     {
-        // TODO: Implementar ConfigNotificaciones (equivalente a ConfigNotificaciones de Django)
-        return view('perfil.configuracion');
+        $request->validate([
+            'password_actual' => 'required',
+            'password'        => ['required', 'min:6', 'confirmed'],
+        ], [
+            'password_actual.required' => 'Debes ingresar tu contraseña actual.',
+            'password.required'        => 'La nueva contraseña es obligatoria.',
+            'password.min'             => 'La contraseña debe tener al menos 6 caracteres.',
+            'password.confirmed'       => 'Las contraseñas no coinciden.',
+        ]);
+
+        $user = Auth::user();
+
+        if (!Hash::check($request->password_actual, $user->password)) {
+            return back()->withErrors(['password_actual' => 'La contraseña actual es incorrecta.']);
+        }
+
+        $user->update(['password' => Hash::make($request->password)]);
+
+        return redirect()->route('perfil.show')
+            ->with('success', 'Contraseña actualizada correctamente.');
     }
 }

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use App\Models\RegistroAccion;
 use App\Models\AccionEcologica;
 use App\Models\Dispositivo;
+use App\Mail\ReciclajeConfirmadoMail;
 
 class ReciclajeController extends Controller
 {
@@ -24,7 +26,6 @@ class ReciclajeController extends Controller
     {
         $acciones     = AccionEcologica::all();
         $dispositivos = Dispositivo::where('estado', 'activo')->get();
-
         return view('reciclaje.create', compact('acciones', 'dispositivos'));
     }
 
@@ -40,8 +41,7 @@ class ReciclajeController extends Controller
 
         $accion = AccionEcologica::findOrFail($validated['accion_id']);
 
-        // Crear el registro
-        RegistroAccion::create([
+        $registro = RegistroAccion::create([
             'user_id'        => Auth::id(),
             'accion_id'      => $validated['accion_id'],
             'dispositivo_id' => $validated['dispositivo_id'] ?? null,
@@ -50,24 +50,28 @@ class ReciclajeController extends Controller
             'observaciones'  => $validated['observaciones'] ?? null,
         ]);
 
-        // Sumar puntos al usuario
         Auth::user()->increment('puntos', $accion->puntos_otorgados);
 
+        // Enviar correo de confirmación
+        try {
+            $user = Auth::user()->fresh();
+            $registro->load(['accion', 'dispositivo']);
+            Mail::to($user->email)->send(new ReciclajeConfirmadoMail($user, $registro));
+        } catch (\Exception $e) {
+            // Si el correo falla no interrumpimos el flujo
+        }
+
         return redirect()->route('reciclaje.index')
-            ->with('success', "¡Acción registrada! Ganaste +{$accion->puntos_otorgados} puntos 🌱");
+            ->with('success', "¡Acción registrada! +{$accion->puntos_otorgados} puntos. Revisa tu correo 📧");
     }
 
     public function destroy($id)
     {
         $registro = RegistroAccion::where('user_id', Auth::id())->findOrFail($id);
-
-        // Restar los puntos antes de eliminar
         $puntos = $registro->accion->puntos_otorgados;
         Auth::user()->decrement('puntos', $puntos);
-
         $registro->delete();
 
-        return redirect()->route('reciclaje.index')
-            ->with('success', 'Registro eliminado.');
+        return redirect()->route('reciclaje.index')->with('success', 'Registro eliminado.');
     }
 }
