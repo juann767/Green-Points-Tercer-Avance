@@ -1,0 +1,26 @@
+UNIVERSIDAD GERARDO BARRIOS
+
+"FACULTAD DE CIENCA Y TECNOLOGIA"
+
+PROYECTO GREENPOINTS 
+
+MATERIA: PROGRAMACIÓN COMPUTACIONAL IV
+
+DOCENTE: WILLIAN ALEXIS MONTES GIRÓN
+
+INTEGRANTES: 
+
+Diego Martín López Moreno (SMSS097824). 
+
+Walter Alexander Ramírez Benítez (SMSS082124). 
+
+Juan Ramón Espinal Coto (SMSS102323). 
+
+Franklin Aldahir Portillo Flores (SMSS011624). 
+
+Omar Salvador García Vasquez (SMSS093524). 
+
+Flor Marina Torres Jandres (SMSS098424). 
+
+GRUPO: B2
+
